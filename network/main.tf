@@ -6,6 +6,14 @@ variable app_name {
   type = string
 }
 
+variable public_subnets_cidr {
+  type = list
+}
+
+variable private_subnets_cidr {
+  type = list
+}
+
 resource "aws_vpc" "main_vpc" {
   cidr_block           = var.vpc_cidr
 
@@ -68,9 +76,67 @@ resource "aws_subnet" "private_subnet" {
 }
 
 resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.main_vpc.id
 
+  tags = {
+    Name = "${var.app_name}-private-route-table"
+  }
 }
 
 resource "aws_route_table" "public_rt" {
-  
+  vpc_id = aws_vpc.main_vpc.id
+
+  tags = {
+    Name = "${var.app_name}-public-route-table"
+  }
+}
+
+// Route for internet gateway
+
+resource "aws_route" "public_internet_gateway" {
+  route_table_id         = aws_route_table.public_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.ig.id
+}
+
+// Route for NAT
+resource "aws_route" "private_nat_gateway" {
+  route_table_id         = aws_route_table.private_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat.id
+}
+
+resource "aws_route_table_association" "public" {
+  count          = length(var.public_subnets_cidr)
+  subnet_id      = element(aws_subnet.public_subnet.*.id, count.index)
+  route_table_id = aws_route_table.public_rt.id
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(var.private_subnets_cidr)
+  subnet_id      = element(aws_subnet.private_subnet.*.id, count.index)
+  route_table_id = aws_route_table.private_rt.id
+}
+
+// Default Security group of VPC
+resource "aws_security_group" "default" {
+  name       = "${var.app_name}-vpc-default-sg"
+  vpc_id     = aws_vpc.main_vpc.id
+  depends_on = [
+    aws_vpc.main_vpc
+  ]
+
+  ingress {
+    from_port = "0"
+    to_port   = "0"
+    protocol  = "-1"
+    self      = true
+  }
+
+  egress {
+    from_port = "0"
+    to_port   = "0"
+    protocol  = "-1"
+    self      = true
+  }
 }
