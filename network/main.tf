@@ -140,3 +140,8 @@ resource "aws_security_group" "default" {
     self      = true
   }
 }
+
+output {
+  vpc_id   = aws_vpc.main_vpc.id
+  vpc_cidr = aws_vpc.main_vpc.cidr_block
+}
