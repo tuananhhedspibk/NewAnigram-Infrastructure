@@ -1,0 +1,23 @@
+[
+  {
+    "name": "newanigram-api",
+    "image": "${account_id}.dkr.ecr.${region}.amazonaws.com/${repository_api}:${api_tag}",
+    "cpu": 0,
+    "memory": 128,
+    "portMappings": [
+      {
+        "containerPort": "${port_api}",
+        "hostPort": "${port_api}"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-region": "${region}",
+        "awslogs-group": "${log_group_api}",
+        "awslogs-stream-prefix": "${log_stream_prefix}"
+      }
+    },
+    "environment": []
+  }
+]
