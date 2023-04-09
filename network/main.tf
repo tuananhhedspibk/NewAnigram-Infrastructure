@@ -14,6 +14,15 @@ variable private_subnets_cidr {
   type = list
 }
 
+locals {
+  alb_ports_in = [
+    443,
+    80
+  ]
+}
+
+// Define VPC, Subnets, Internet gateway, Route table, ...
+
 resource "aws_vpc" "main_vpc" {
   cidr_block           = var.vpc_cidr
 
@@ -75,6 +84,7 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
+// Private route table
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.main_vpc.id
 
@@ -83,6 +93,7 @@ resource "aws_route_table" "private_rt" {
   }
 }
 
+// Public route table
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main_vpc.id
 
@@ -92,7 +103,6 @@ resource "aws_route_table" "public_rt" {
 }
 
 // Route for internet gateway
-
 resource "aws_route" "public_internet_gateway" {
   route_table_id         = aws_route_table.public_rt.id
   destination_cidr_block = "0.0.0.0/0"
@@ -139,6 +149,37 @@ resource "aws_security_group" "default" {
     protocol  = "-1"
     self      = true
   }
+}
+
+// Define alb
+
+resource "aws_security_group" "alb_security_group" {
+  name = "${var.app_name}-alb-security-group"
+  vpc_id = aws_vpc.main_vpc.id
+
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1" // Allow all protocols
+  }
+
+  dynamic "ingress" {
+    for_each = toset(local.ports_in)
+    content {
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+}
+
+resource "aws_lb" "alb" {
+  name = "${var.app_name}-alb"
+  load_balancer_type = "application"
+  idle_timeout = 180
+
+  security_group = [aws_security_group.alb.id]
 }
 
 output {
