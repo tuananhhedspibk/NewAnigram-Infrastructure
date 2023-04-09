@@ -18,6 +18,37 @@
         "awslogs-stream-prefix": "${log_stream_prefix}"
       }
     },
-    "environment": []
+    "environment": [
+      {
+        "name": "LOG_CHANNEL",
+        "value": "${log_channel_api}"
+      }
+    ]
+  },
+  {
+    "name": "nginx",
+    "image": "${account_id}.dkr.ecr.${region}.amazonaws.com/${repository_nginx}:${nginx_tag}",
+    "cpu": 0,
+    "memory": 128,
+    "portMappings": [
+      {
+        "containerPort": "${port_nginx}",
+        "hostPort": "${port_nginx}"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-region": "${region}",
+        "awslogs-group": "${log_group_nginx}",
+        "awslogs-stream-prefix": "${log_stream_prefix}"
+      }
+    },
+    "environment": [
+      {
+        "name": "LOG_CHANNEL",
+        "value": "${log_channel_nginx}"
+      }
+    ]
   }
 ]

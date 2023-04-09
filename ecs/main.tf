@@ -1,3 +1,47 @@
+variable app_name {
+  type = string
+}
+
+variable db_host {
+  type = string
+}
+
+variable db_username {
+  type = string
+}
+
+variable db_password {
+  type = string
+}
+
+variable db_database_name {
+  type = string
+}
+
+variable https_listener_arn {
+  type = string
+}
+
+variable lb_target_group_arn {
+  type = string
+}
+
+variable security_group_name {
+  type = string
+}
+
+variable vpc_id {
+  type = string
+}
+
+variable cluster_name {
+  type = string
+}
+
+variable subnet_ids {
+  type = string
+}
+
 data "template_file" "task_definition" {
   template = file("./ecs/task_definition.json")
 
@@ -50,6 +94,24 @@ resource "aws_lb_listener_rule" "this" {
   }
 }
 
+resource "aws_security_group" "this" {
+  name = var.security_group_name
+  description = "${var.app_name}-ecs-security-group"
+
+  vpc_id = var.vpc_id
+
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group_rule" "sg_rule" {
+  security_group_id = aws_security_group.this.id
+}
+
 resource "aws_ecs_service" "this" {
   depends_on = [aws_lb_listener_rule.this]
 
@@ -67,7 +129,9 @@ resource "aws_ecs_service" "this" {
   }
 
   load_balancer {
-    
+    container_name   = "nginx"
+    container_port   = local.port_nginx
+    target_group_arn = var.lb_target_group_arn
   }
 }
 
