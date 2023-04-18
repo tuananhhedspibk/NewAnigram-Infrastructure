@@ -1,29 +1,38 @@
-variable region {
-  type = string
-}
-
 variable app_name {
   type = string
 }
 
+variable vpc_cidr {
+  type = string
+}
+
+variable availability_zones {
+  type = list(string)
+}
+
 variable public_subnets_cidr {
-  type = list
+  type = list(string)
 }
 
 variable private_subnets_cidr {
-  type = list
+  type = list(string)
+}
+
+variable target_health_check_port {
+  type = number
+}
+
+variable target_health_check_path {
+  type = string
 }
 
 locals {
-  alb_ports_in = [
-    443,
-    80
-  ]
+  alb_ports_in = [ 443, 80 ]
 }
 
 // Define VPC, Subnets, Internet gateway, Route table, ...
 
-resource "aws_vpc" "main_vpc" {
+resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
 
   enable_dns_hostnames = true
@@ -34,23 +43,23 @@ resource "aws_vpc" "main_vpc" {
   }
 }
 
-resource "aws_internet_gateway" "ig" {
-  vpc_id = aws_vpc.main_vpc.id
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
   tags   = {
     Name = "${var.app_name}-igw"
   }
 }
 
 // ElasticIP for NAT gateway
-resource "aws_eip" "nat_eip" {
+resource "aws_eip" "nat" {
   vpc        = true
-  depends_on = [aws_internet_gateway.id]
+  depends_on = [aws_internet_gateway.main]
 }
 
 // NAT gateway
-resource "aws_nat_gateway" "nat" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = element(aws_subnet.public_subnet.*.id, 0)
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = element(aws_subnet.public.*.id, 0)
 
   tags = {
     Name = "${var.app_name}-nat"
@@ -58,35 +67,36 @@ resource "aws_nat_gateway" "nat" {
 }
 
 // Public subnet
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.main_vpc.id
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
 
+  count                   = length(var.public_subnets_cidr)
   cidr_block              = element(var.public_subnets_cidr, count.index)
-
   availability_zone       = element(var.availability_zones, count.index)
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.app_name}-public-subnet"
+    Name = "${var.app_name}-public-subnet-${element(var.availability_zones, count.index)}"
   }
 }
 
 // Private subnet
-resource "aws_subnet" "private_subnet" {
-  vpc_id                  = aws_vpc.main_vpc.id
+resource "aws_subnet" "private" {
+  vpc_id                  = aws_vpc.main.id
   
+  count                   = length(var.private_subnets_cidr)
   cidr_block              = element(var.private_subnets_cidr, count.index)
   availability_zone       = element(var.availability_zones, count.index)
   map_public_ip_on_launch = false
 
   tags = {
-    Name = "${var.app_name}-private-subnet"
+    Name = "${var.app_name}-private-subnet-${element(var.availability_zones, count.index)}"
   }
 }
 
 // Private route table
-resource "aws_route_table" "private_rt" {
-  vpc_id = aws_vpc.main_vpc.id
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
     Name = "${var.app_name}-private-route-table"
@@ -94,77 +104,56 @@ resource "aws_route_table" "private_rt" {
 }
 
 // Public route table
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.main_vpc.id
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
     Name = "${var.app_name}-public-route-table"
   }
 }
 
-// Route for internet gateway
-resource "aws_route" "public_internet_gateway" {
-  route_table_id         = aws_route_table.public_rt.id
+// Route for public route table
+resource "aws_route" "public" {
+  route_table_id         = aws_route_table.public.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.ig.id
+  gateway_id             = aws_internet_gateway.main.id
 }
 
-// Route for NAT
+// Route for private rotue table
 resource "aws_route" "private_nat_gateway" {
-  route_table_id         = aws_route_table.private_rt.id
+  route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat.id
+  nat_gateway_id         = aws_nat_gateway.main.id
 }
 
 resource "aws_route_table_association" "public" {
   count          = length(var.public_subnets_cidr)
-  subnet_id      = element(aws_subnet.public_subnet.*.id, count.index)
-  route_table_id = aws_route_table.public_rt.id
+  subnet_id      = element(aws_subnet.public.*.id, count.index)
+  route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "private" {
   count          = length(var.private_subnets_cidr)
-  subnet_id      = element(aws_subnet.private_subnet.*.id, count.index)
-  route_table_id = aws_route_table.private_rt.id
+  subnet_id      = element(aws_subnet.private.*.id, count.index)
+  route_table_id = aws_route_table.private.id
 }
 
-// Default Security group of VPC
-resource "aws_security_group" "default" {
-  name       = "${var.app_name}-vpc-default-sg"
-  vpc_id     = aws_vpc.main_vpc.id
-  depends_on = [
-    aws_vpc.main_vpc
-  ]
+// Define ALB
+resource "aws_security_group" "alb" {
+  name = "${var.app_name}-alb-sg"
+  vpc_id = aws_vpc.main.id
 
-  ingress {
-    from_port = "0"
-    to_port   = "0"
-    protocol  = "-1"
-    self      = true
-  }
-
+  // Outbound rule
   egress {
-    from_port = "0"
-    to_port   = "0"
-    protocol  = "-1"
-    self      = true
-  }
-}
-
-// Define alb
-
-resource "aws_security_group" "alb_security_group" {
-  name = "${var.app_name}-alb-security-group"
-  vpc_id = aws_vpc.main_vpc.id
-
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1" // Allow all protocols
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1" // Allow all protocols
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
+  // Inbound rules
   dynamic "ingress" {
-    for_each = toset(local.ports_in)
+    for_each = toset(local.alb_ports_in)
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -174,15 +163,37 @@ resource "aws_security_group" "alb_security_group" {
   }
 }
 
-resource "aws_lb" "alb" {
-  name = "${var.app_name}-alb"
+resource "aws_lb" "main" {
+  name               = "${var.app_name}-alb"
   load_balancer_type = "application"
-  idle_timeout = 180
+  idle_timeout       = 180
 
-  security_group = [aws_security_group.alb.id]
+  subnets            = aws_subnet.public.*.id
+
+  security_groups    = [aws_security_group.alb.id]
 }
 
-output {
-  vpc_id   = aws_vpc.main_vpc.id
-  vpc_cidr = aws_vpc.main_vpc.cidr_block
+resource "aws_lb_target_group" "main" {
+  name = "${var.app_name}-alb-main-tg"
+  vpc_id = aws_vpc.main.id
+
+  port = 80
+  protocol = "HTTP"
+  target_type = "ip"
+
+  health_check {
+    port = var.target_health_check_port
+    path = var.target_health_check_path
+  }
+}
+
+resource "aws_lb_listener" "main" {
+  port               = 80
+  protocol           = "HTTP"
+  load_balancer_arn  = aws_lb.main.arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.main.id
+  }
 }
