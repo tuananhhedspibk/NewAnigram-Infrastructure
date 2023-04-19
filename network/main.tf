@@ -197,3 +197,11 @@ resource "aws_lb_listener" "main" {
     target_group_arn = aws_lb_target_group.main.id
   }
 }
+
+output public_subnet_ids {
+  value = aws_subnet.public.*.id
+}
+
+output vpc_id {
+  value = aws_vpc.main.id
+}

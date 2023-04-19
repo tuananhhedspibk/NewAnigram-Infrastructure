@@ -36,3 +36,10 @@ module "network" {
   target_health_check_port = 80
   target_health_check_path = "/healthcheck"
 }
+
+module "proxy" {
+  source    = "./proxy"
+  app_name  = local.app_name
+  vpc_id    = module.network.vpc_id
+  subnet_id = module.network.public_subnet_ids[0]
+}
