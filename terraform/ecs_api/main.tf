@@ -61,11 +61,15 @@ data "template_file" "task_definition" {
     account_id        = local.account_id
     region            = local.region
 
-    repository_api    = "newanigram"
+    repository_api    = "newanigram-api"
+    repository_nginx  = "newanigram-nginx"
     api_tag           = "latest"
+    nginx_tag         = "latest"
     log_channel_api   = "newanigram-api"
+    log_channel_nginx = "newanigram-nginx"
 
-    log_group_api     = aws_cloudwatch_log_group.this.name
+    log_group_api     = aws_cloudwatch_log_group.api.name
+    log_group_nginx   = aws_cloudwatch_log_group.nginx.name
     log_stream_prefix = var.app_name
 
     port_api          = local.port_api
@@ -78,7 +82,7 @@ data "template_file" "task_definition" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "this" {
+resource "aws_cloudwatch_log_group" "api" {
   name = "/aws/ecs/newanigram-api"
   retention_in_days = 7
 }
