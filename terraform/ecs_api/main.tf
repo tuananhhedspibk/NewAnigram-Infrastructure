@@ -18,7 +18,7 @@ variable db_database_name {
   type = string
 }
 
-variable https_listener_arn {
+variable http_listener_arn {
   type = string
 }
 
@@ -39,25 +39,37 @@ variable cluster_name {
 }
 
 variable subnet_ids {
-  type = string
+  type = list(string)
+}
+
+data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
+
+locals {
+  region     = data.aws_region.current.name
+  account_id = data.aws_caller_identity.current.account_id
+
+  port_api   = 4000
+  port_nginx = 80
 }
 
 data "template_file" "task_definition" {
-  template = file("./ecs/task_definition.json")
+  template = file("./ecs_api/task_definition.json")
 
   vars = {
     account_id        = local.account_id
     region            = local.region
-    name              = local.name
 
     repository_api    = "newanigram"
     api_tag           = "latest"
     log_channel_api   = "newanigram-api"
 
     log_group_api     = aws_cloudwatch_log_group.this.name
-    log_stream_prefix = local.name
+    log_stream_prefix = var.app_name
 
     port_api          = local.port_api
+    port_nginx        = local.port_nginx
 
     db_host           = var.db_host
     db_username       = var.db_username
@@ -66,21 +78,31 @@ data "template_file" "task_definition" {
   }
 }
 
+resource "aws_cloudwatch_log_group" "this" {
+  name = "/aws/ecs/newanigram-api"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "nginx" {
+  name = "/aws/ecs/newanigram-nginx"
+  retention_in_days = 7
+}
+
 resource "aws_ecs_task_definition" "this" {
-  family               = "newanigram-api"
+  family                = "newanigram-api"
 
-  container_definition = data.template_file.task_definition.rendered
+  container_definitions = data.template_file.task_definition.rendered
 
-  cpu                  = "256"
-  memory               = "512"
-  network_mode         = "awsvpc"
+  cpu                   = "256"
+  memory                = "512"
+  network_mode          = "awsvpc"
 
-  task_role_arn        = aws_iam_role.ecs_iam_role.arn
-  execution_role_arn   = aws_iam_role.ecs_iam_role.arn
+  task_role_arn         = aws_iam_role.ecs_iam_role.arn
+  execution_role_arn    = aws_iam_role.ecs_iam_role.arn
 }
 
 resource "aws_lb_listener_rule" "this" {
-  listener_arn = var.https_listener_arn
+  listener_arn = var.http_listener_arn
 
   action {
     type = "forward"
@@ -89,42 +111,49 @@ resource "aws_lb_listener_rule" "this" {
 
   condition {
     path_pattern {
-      value = ["*"]
+      values = ["*"]
     }
   }
 }
 
 resource "aws_security_group" "this" {
-  name = var.security_group_name
-  description = "${var.app_name}-ecs-security-group"
+  name          = var.security_group_name
+  description   = "${var.app_name}-ecs-security-group"
 
-  vpc_id = var.vpc_id
+  vpc_id        = var.vpc_id
 
   egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 resource "aws_security_group_rule" "sg_rule" {
   security_group_id = aws_security_group.this.id
+
+  type              = "ingress"
+
+  from_port         = local.port_nginx
+  to_port           = local.port_nginx
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_ecs_service" "this" {
-  depends_on = [aws_lb_listener_rule.this]
+  depends_on      = [aws_lb_listener_rule.this]
 
-  name = local.name
+  name            = var.app_name
 
-  desired_count = 1
-  launch_type = "EC2"
+  desired_count   = 1
+  launch_type     = "EC2"
 
-  cluster = var.cluster_name
+  cluster         = var.cluster_name
   task_definition = aws_ecs_task_definition.this.arn
 
   network_configuration {
-    subnets = var.subnet_ids
+    subnets         = var.subnet_ids
     security_groups = [aws_security_group.this.id]
   }
 
@@ -141,7 +170,7 @@ data "aws_iam_policy_document" "ecs_assume_role_policy_document" {
 
     principals {
       type        = "Service"
-      identifider = ["ecs-tasks.amazonaws.com"]
+      identifiers = ["ecs-tasks.amazonaws.com"]
     }
 
     actions       = ["sts:AssumeRole"]
