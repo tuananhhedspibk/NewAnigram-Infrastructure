@@ -198,6 +198,21 @@ resource "aws_lb_listener" "main" {
   }
 }
 
+resource "aws_lb_listener_rule" "main" {
+  listener_arn = aws_lb_listener.main.arn
+
+  action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.main.id
+  }
+
+  condition {
+    query_string {
+      value = "*"
+    }
+  }
+}
+
 output public_subnet_ids {
   value = aws_subnet.public.*.id
 }
@@ -208,4 +223,12 @@ output private_subnet_ids {
 
 output vpc_id {
   value = aws_vpc.main.id
+}
+
+output lb_target_group_arn {
+  value = aws_lb_target_group.main.arn
+}
+
+output http_listener_arn {
+  value = aws_lb_listener.main.arn
 }

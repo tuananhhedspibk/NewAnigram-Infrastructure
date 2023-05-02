@@ -1,6 +1,6 @@
 [
   {
-    "name": "newanigram-api",
+    "name": "api",
     "image": "${account_id}.dkr.ecr.${region}.amazonaws.com/${repository_api}:${api_tag}",
     "cpu": 0,
     "memory": 128,

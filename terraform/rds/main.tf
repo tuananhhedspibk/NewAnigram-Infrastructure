@@ -14,7 +14,7 @@ variable proxy_security_group {
   type = string
 }
 
-varaible vpc_cidr {
+variable vpc_cidr {
   type = string
 }
 
@@ -68,7 +68,7 @@ resource "aws_security_group_rule" "private" {
   from_port         = var.port
   to_port           = var.port
   protocol          = "tcp"
-  cidr_block        = [var.vpc_cidr]
+  cidr_blocks       = [var.vpc_cidr]
   description       = "Access from same vpc"
 }
 
@@ -80,7 +80,7 @@ resource "aws_security_group_rule" "proxy" {
   from_port             = var.port
   to_port               = var.port
   protocol              = "tcp"
-  source_security_group = var.proxy_security_group
+  source_security_group_id = var.proxy_security_group
   description           = "Access from proxy"
 }
 
@@ -90,7 +90,7 @@ resource "aws_db_subnet_group" "aurora_subnet_group" {
 
   subnet_ids  = var.subnet_ids
 
-  tag = {
+  tags = {
     Name = "${var.app_name}-mysql-subnet-group-${var.vpc_id}"
   }
 }

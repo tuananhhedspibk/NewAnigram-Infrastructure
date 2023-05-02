@@ -8,6 +8,8 @@ locals {
   db_port              = 3306
 
   vpc_cidr             = "10.0.0.0/16"
+
+  ecs_security_group_name = "${local.app_name}-ecs-security-group"
 }
 
 terraform {
@@ -32,7 +34,7 @@ module "network" {
   vpc_cidr                 = local.vpc_cidr
   availability_zones       = ["ap-northeast-1a", "ap-northeast-1c"]
   public_subnets_cidr      = ["10.0.1.0/24", "10.0.2.0/24"]
-  private_subnets_cidr     = ["10.0.10.0/24"]
+  private_subnets_cidr     = ["10.0.10.0/24", "10.0.20.0/24"]
   target_health_check_port = 80
   target_health_check_path = "/healthcheck"
 }
@@ -52,7 +54,7 @@ module "rds" {
   vpc_cidr             = local.vpc_cidr
   subnet_ids           = module.network.private_subnet_ids
 
-  proxy_security_group = module.proxu.security_group_id
+  proxy_security_group = module.proxy.security_group_id
 
   port                 = local.db_port
   master_username      = local.db_username
@@ -62,15 +64,27 @@ module "rds" {
 
 module "ecs_cluster" {
   source   = "./ecs_cluster"
-  app_name = var.app_name
+  app_name = local.app_name
 }
 
 module "ecs_api" {
-  source = "./ecs_api"
+  source              = "./ecs_api"
 
-  app_name = var.app_name
+  app_name            = local.app_name
+  
+  vpc_id              = module.network.vpc_id
+  subnet_ids          = module.network.private_subnet_ids
 
-  db_host = module.rds.endpoint
+  http_listener_arn   = module.network.http_listener_arn
+  lb_target_group_arn = module.network.lb_target_group_arn
+  security_group_name = local.ecs_security_group_name
+
+  db_host             = module.rds.endpoint
+  db_username         = local.db_username
+  db_password         = local.db_password
+  db_database_name    = local.db_database
+
+  cluster_name        = module.ecs_cluster.cluster_name
 }
 
 resource "aws_ssm_parameter" "rds_database" {
