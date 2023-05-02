@@ -6,8 +6,8 @@
     "memory": 128,
     "portMappings": [
       {
-        "containerPort": "${port_api}",
-        "hostPort": "${port_api}"
+        "containerPort": ${port_api},
+        "hostPort": ${port_api}
       }
     ],
     "logConfiguration": {
@@ -32,8 +32,8 @@
     "memory": 128,
     "portMappings": [
       {
-        "containerPort": "${port_nginx}",
-        "hostPort": "${port_nginx}"
+        "containerPort": ${port_nginx},
+        "hostPort": ${port_nginx}
       }
     ],
     "logConfiguration": {
