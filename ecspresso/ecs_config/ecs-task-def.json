@@ -1,0 +1,101 @@
+{
+  "containerDefinitions": [
+    {
+      "cpu": 0,
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "{{ tfstate `module.network.aws_lb_target_group.main.port` }}"
+        },
+        {
+          "name": "LOG_CHANNEL",
+          "value": "{{ env `LOG_GROUP` `newanigram` }}"
+        },
+        {
+          "name": "DB_CONNECTION",
+          "value": "mysql"
+        },
+        {
+          "name": "NEWANIGRAM_RDB_HOST",
+          "value": "newanigram-mysql-identifier.c0jzwyfu5lfa.ap-northeast-1.rds.amazonaws.com"
+        },
+        {
+          "name": "NEWANIGRAM_RDB_DATABASE",
+          "value": "{{ tfstate `aws_ssm_parameter.rds_database.value` }}"
+        },
+        {
+          "name": "NEWANIGRAM_RDB_USERNAME",
+          "value": "{{ tfstate `aws_ssm_parameter.rds_username.value` }}"
+        },
+        {
+          "name": "NEWANIGRAM_RDB_PASSWORD",
+          "value": "{{ tfstate `aws_ssm_parameter.rds_password.value` }}"
+        },
+        {
+          "name": "NEWANIGRAM_RDB_PORT",
+          "value": "{{ tfstate `aws_ssm_parameter.rds_port.value` }}"
+        }
+      ],
+      "essential": true,
+      "image": "265593583957.dkr.ecr.ap-northeast-1.amazonaws.com/newanigram-api:{{ must_env `TARGET_COMMIT` }}",
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "{{ env `LOG_GROUP` `/aws/ecs/newanigram-api` }}",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "newanigram"
+        }
+      },
+      "memory": 2048,
+      "mountPoints": [],
+      "name": "api",
+      "portMappings": [
+        {
+          "containerPort": 4000,
+          "hostPort": 4000,
+          "protocol": "tcp"
+        }
+      ],
+      "volumesFrom": []
+    },
+    {
+      "cpu": 0,
+      "environment": [
+        {
+          "name": "LOG_CHANNEL",
+          "value": "newanigram-nginx"
+        }
+      ],
+      "essential": true,
+      "image":"265593583957.dkr.ecr.ap-northeast-1.amazonaws.com/newanigram-nginx:{{ must_env `TARGET_COMMIT` }}",
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"{{ env `LOG_GROUP_NGINX` `/aws/ecs/newanigram-nginx` }}",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "newanigram"
+        }
+      },
+      "memory": 512,
+      "mountPoints": [],
+      "name": "nginx",
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "volumesFrom": []
+    }
+  ],
+  "cpu": "1024",
+  "executionRoleArn": "arn:aws:iam::265593583957:role/newanigram_ecs_iam_role",
+  "family": "newanigram-api",
+  "memory": "2048",
+  "networkMode": "awsvpc",
+  "placementConstraints": [],
+  "requiresCompatibilities": ["FARGATE"],
+  "taskRoleArn": "arn:aws:iam::265593583957:role/newanigram_ecs_iam_role",
+  "volumes": []
+}
