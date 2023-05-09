@@ -1,0 +1,38 @@
+{
+  "deploymentConfiguration": {
+    "deploymentCircuitBreaker": {
+      "enable": false,
+      "rollback": false
+    },
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100
+  },
+  "enableECSManagedTags": false,
+  "desiredCount": 1,
+  "healthCheckGracePeriodSeconds": 0,
+  "launchType": "FARGATE",
+  "loadBalancers": [
+    {
+      "targetGroupArn": "{{ tfstate `module.network.aws_lb_target_group.main.arn` }}",
+      "containerName": "{{ tfstate `module.ecs_api.aws_ecs_service.this.load_balancer[0].container_name` }}",
+      "containerPort": {{ tfstate `module.ecs_api.aws_ecs_service.this.load_balancer[0].container_port` }}
+    }
+  ],
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "{{ tfstate `module.network.aws_subnet.private[0].id` }}",
+        "{{ tfstate `module.network.aws_subnet.private[1].id` }}"
+      ],
+      "securityGroups": [
+        "{{ tfstate `module.ecs_api.aws_security_group.this.id` }}"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "placementConstraints": [],
+  "placementStrategy": [],
+  "platformVersion": "1.4.0",
+  "schedulingStrategy": "REPLICA",
+  "serviceRegistries": []
+}
