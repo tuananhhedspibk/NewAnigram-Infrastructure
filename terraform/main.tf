@@ -36,7 +36,7 @@ module "network" {
   public_subnets_cidr      = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets_cidr     = ["10.0.10.0/24", "10.0.20.0/24"]
   target_health_check_port = 80
-  target_health_check_path = "/healthcheck"
+  target_health_check_path = "/v1/healthcheck"
 }
 
 module "proxy" {
@@ -88,7 +88,25 @@ module "ecs_api" {
 }
 
 resource "aws_ssm_parameter" "rds_database" {
-  name = "/rds/newanigram/host"
-  type = "String"
+  name  = "/rds/newanigram/database"
+  type  = "String"
   value = local.db_database
+}
+
+resource "aws_ssm_parameter" "rds_username" {
+  name  = "/rds/newanigram/username"
+  type  = "String"
+  value = local.db_username
+}
+
+resource "aws_ssm_parameter" "rds_password" {
+  name  = "/rds/newanigram/password"
+  type  = "SecureString"
+  value = local.db_password
+}
+
+resource "aws_ssm_parameter" "rds_port" {
+  name  = "/rds/newanigram/port"
+  type  = "String"
+  value = local.db_port
 }
