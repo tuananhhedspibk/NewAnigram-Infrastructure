@@ -151,7 +151,7 @@ resource "aws_ecs_service" "this" {
   name            = var.app_name
 
   desired_count   = 1
-  launch_type     = "EC2"
+  launch_type     = "FARGATE"
 
   cluster         = var.cluster_name
   task_definition = aws_ecs_task_definition.this.arn
@@ -193,7 +193,11 @@ data "aws_iam_policy_document" "ecs_create_log_group_policy_document" {
       "logs:DescribeLogStreams",
       "ssm:GetParameters",
       "secretmanager:GetSecretValue",
-      "kms:Decrypt"
+      "kms:Decrypt",
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
     ]
 
     resources = ["*"]
