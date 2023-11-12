@@ -1,3 +1,3 @@
 # NewAnigram-Infrastructure
 
-Build by AWS, CircleCI and Ecspresso
+Build by AWS and Ecspresso
