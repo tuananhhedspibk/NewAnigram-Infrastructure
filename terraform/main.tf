@@ -1,13 +1,13 @@
 locals {
-  region               = "ap-northeast-1"
-  app_name             = "newanigram"
+  region   = "ap-northeast-1"
+  app_name = "newanigram"
 
-  db_database          = "newanigram"
-  db_username          = "newanigram"
-  db_password          = "password"
-  db_port              = 3306
+  db_database = "newanigram"
+  db_username = "newanigram"
+  db_password = "password"
+  db_port     = 3306
 
-  vpc_cidr             = "10.0.0.0/16"
+  vpc_cidr = "10.0.0.0/16"
 
   ecs_security_group_name = "${local.app_name}-ecs-security-group"
 }
@@ -18,17 +18,17 @@ terraform {
     region  = "ap-northeast-1"
     key     = "terraform.tfstate"
     encrypt = true
-    profile = "tuananh"
+    profile = "default"
   }
 }
 
 provider "aws" {
   region  = "ap-northeast-1"
-  profile = "tuananh"
+  profile = ""
 }
 
 module "network" {
-  source                   = "./network"
+  source = "./network"
 
   app_name                 = local.app_name
   vpc_cidr                 = local.vpc_cidr
@@ -47,19 +47,19 @@ module "proxy" {
 }
 
 module "rds" {
-  source               = "./rds"
+  source = "./rds"
 
-  app_name             = local.app_name
-  vpc_id               = module.network.vpc_id
-  vpc_cidr             = local.vpc_cidr
-  subnet_ids           = module.network.private_subnet_ids
+  app_name   = local.app_name
+  vpc_id     = module.network.vpc_id
+  vpc_cidr   = local.vpc_cidr
+  subnet_ids = module.network.private_subnet_ids
 
   proxy_security_group = module.proxy.security_group_id
 
-  port                 = local.db_port
-  master_username      = local.db_username
-  master_password      = local.db_password
-  database_name        = local.db_database
+  port            = local.db_port
+  master_username = local.db_username
+  master_password = local.db_password
+  database_name   = local.db_database
 }
 
 module "ecs_cluster" {
@@ -68,23 +68,23 @@ module "ecs_cluster" {
 }
 
 module "ecs_api" {
-  source              = "./ecs_api"
+  source = "./ecs_api"
 
-  app_name            = local.app_name
-  
-  vpc_id              = module.network.vpc_id
-  subnet_ids          = module.network.private_subnet_ids
+  app_name = local.app_name
+
+  vpc_id     = module.network.vpc_id
+  subnet_ids = module.network.private_subnet_ids
 
   http_listener_arn   = module.network.http_listener_arn
   lb_target_group_arn = module.network.lb_target_group_arn
   security_group_name = local.ecs_security_group_name
 
-  db_host             = module.rds.endpoint
-  db_username         = local.db_username
-  db_password         = local.db_password
-  db_database_name    = local.db_database
+  db_host          = module.rds.endpoint
+  db_username      = local.db_username
+  db_password      = local.db_password
+  db_database_name = local.db_database
 
-  cluster_name        = module.ecs_cluster.cluster_name
+  cluster_name = module.ecs_cluster.cluster_name
 }
 
 resource "aws_ssm_parameter" "rds_database" {
